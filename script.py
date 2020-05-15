@@ -33,28 +33,28 @@ def first_pass( commands ):
             name = args[0]
         elif c == "frames":
             num_frames = int(args[0])
-        if num_frames != 1 and name == '':
-            print("Default Basename: img000.png")
-            name = "img000.png"
-        if num_frames == 1 and vary:
-            print("Compiler Error: Expected more than one frame for Vary command")
-            exit()
+    if name == '':
+        print("Warning! No Basename provided. Default Basename: img")
+        name = "img"
+    if num_frames == 1 and vary:
+        print("Compiler Error: Expected more than one frame for Vary command")
+        exit()
     return (name, num_frames)
 
 """======== second_pass( commands ) ==========
 
-  In order to set the knobs for animation, we need to keep
+  In order to set the command['knob'] for animation, we need to keep
   a seaprate value for each knob for each frame. We can do
   this by using an array of dictionaries. Each array index
-  will correspond to a frame (eg. knobs[0] would be the first
-  frame, knobs[2] would be the 3rd frame and so on).
+  will correspond to a frame (eg. command['knob'][0] would be the first
+  frame, command['knob'][2] would be the 3rd frame and so on).
 
   Each index should contain a dictionary of knob values, each
   key will be a knob name, and each value will be the knob's
   value for that frame.
 
   Go through the command array, and when you find vary, go
-  from knobs[0] to knobs[frames-1] and add (or modify) the
+  from command['knob'][0] to command['knob'][frames-1] and add (or modify) the
   dictionary corresponding to the given knob with the
   appropirate value.
   ===================="""
@@ -63,16 +63,14 @@ def second_pass( commands, num_frames ):
     for command in commands:
         c = command['op']
         args = command['args']
-        print(frames)
         if c == "vary":
-            print(args[0])
             if num_frames>1:
                 start = int(args[0])
                 end = int(args[1])
                 value1 = args[2]
                 value2 = args[3]
                 knob = command ['knob']
-                dx = (value1-value2)/(end-start)
+                dx = (value2-value1)/(end-start)
                 while start <= end:
                     frames[start][knob] = value1
                     value1 += dx
@@ -117,6 +115,7 @@ def run(filename):
     count_frames = 0
 
     while(count_frames < num_frames):
+        print("Creating Frame #"+str(count_frames))
         tmp = new_matrix()
         ident( tmp )
 
@@ -132,7 +131,6 @@ def run(filename):
         for command in commands:
             c = command['op']
             args = command['args']
-            knobs = command['knob']
             knob_value = 1
 
             if c == 'box':
@@ -170,23 +168,23 @@ def run(filename):
                 draw_lines(tmp, screen, zbuffer, color)
                 tmp = []
             elif c == 'move':
-                if knobs != None:
-                    knob_value = frames[count_frames][knobs]
-                tmp = make_translate(args[0], args[1], args[2])
+                if command['knob']:
+                    knob_value = frames[count_frames][command['knob']]
+                tmp = make_translate(args[0] * knob_value, args[1] * knob_value, args[2] * knob_value)
                 matrix_mult(stack[-1], tmp)
                 stack[-1] = [x[:] for x in tmp]
                 tmp = []
             elif c == 'scale':
-                if knobs != None:
-                    knob_value = frames[count_frames][knobs]
-                tmp = make_scale(args[0], args[1], args[2])
+                if command['knob']:
+                    knob_value = frames[count_frames][command['knob']]
+                tmp = make_scale(args[0] * knob_value, args[1] * knob_value, args[2] * knob_value)
                 matrix_mult(stack[-1], tmp)
                 stack[-1] = [x[:] for x in tmp]
                 tmp = []
             elif c == 'rotate':
-                if knobs != None:
-                    knob_value = frames[count_frames][knobs]
-                theta = args[1] * (math.pi/180)
+                if command['knob']:
+                    knob_value = frames[count_frames][command['knob']]
+                theta = args[1] * (math.pi/180) * knob_value
                 if args[0] == 'x':
                     tmp = make_rotX(theta)
                 elif args[0] == 'y':
@@ -204,7 +202,7 @@ def run(filename):
                 display(screen)
             elif c == 'save':
                 save_extension(screen, args[0] + ".png")
-        save_extension(screen,"anim/"+name+"%03d"%count_frames)
+        save_extension(screen,"anim/"+name+"%03d"%count_frames+".png")
         count_frames += 1
     if(num_frames != 1):
         make_animation(name)
